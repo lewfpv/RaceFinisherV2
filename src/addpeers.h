@@ -7,6 +7,7 @@
 // MAC címek deklarálása és inicializálása itt:
 // Vevők MAC címei
 
+
 uint8_t receiver1[] = { 0xF4, 0x12, 0xFA, 0xE7, 0xBB, 0xCC };  // ESP32 5" kijelző
 
 void addPeers() {
@@ -16,7 +17,7 @@ void addPeers() {
   peer1.channel = 0;
   peer1.encrypt = false;
   if (!esp_now_add_peer(&peer1)) {
-    Serial.println("Peer1 added");
+    Serial.println("Peer1 added (Touch_EEZ)");
   }
 
 
