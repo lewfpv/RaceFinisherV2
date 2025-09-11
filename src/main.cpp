@@ -35,7 +35,6 @@ struct RacerInfo {
   String channel;
 };
 RacerInfo currentRacer;
-String RacerName; //Rotorhazardból kapott név
 
 //Battery INFO
 float battV = 3.3;
@@ -173,15 +172,16 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 }
 
 void OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomingData, int len) {
-    Message msg;
+    MessageLong msg;
     memcpy(&msg, incomingData, sizeof(msg));
     switch (msg.type) {
       case 9: { // Verseny üzenet
-        if (msg.value == 0) {
           IsPressed = false;
           IsFinished = false;
           RoundCounter = 0;
-        }
+        if (msg.index > 0){    //reset és név ujrairas
+         currentRacer.racerName = msg.p;
+        } 
         default:
         break;
       }
