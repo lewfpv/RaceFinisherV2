@@ -36,6 +36,23 @@ struct RacerInfo {
 };
 RacerInfo currentRacer;
 
+// IDŐMÉRÉS
+unsigned long startTime = 0;
+unsigned long startTimeF = 0;
+bool timingActive = false;
+
+
+String getpilotfromlist(uint8_t id){
+String pilotlist[] = {"WHPgab","F!B","SYS FPV","Side","SP!T","balzaccc","Butterfly","Iceman","Bontott csirke","edward","Macleod","PRoland FPV","KRATS","AMON FPV","Bencusfpv","cd334","Pebs","K T","thnmlssfpv","RCKY","Velvix","ErOsS","Prophet","FPVZ","MC"};
+return pilotlist[id];
+}
+
+String pilotlist[] = {"WHPgab", "LEWFPV", "F!B", "SYS FPV", "Side", "SP!T", "balzaccc", "Butterfly", "Iceman", "Bontott csirke", "edward", "Macleod", "PRoland FPV", "KRATS", "AMON FPV", "Bencusfpv", "cd334", "Pebs", "K T", "thnmlssfpv", "RCKY", "Velvix", "ErOsS", "Prophet", "FPVZ", "MC"};
+const int numPilots = sizeof(pilotlist) / sizeof(pilotlist[0]);
+int currentPilotIndex = 0;
+unsigned long lastDisplayTime = 0;
+const long interval = 1000; // 1 sec
+
 //Battery INFO
 float battV = 3.3;
 const float alpha = 0.03;
@@ -86,14 +103,54 @@ String GetBatteryVoltage() {
   return "Batt: " + String(battV, 1) + "V";
 }
 
+int GetBatteryPercentage(){
+  GetVoltage();
+
+  // A minimum és maximum feszültség, ami a 0% és 100%-nak felel meg
+  float minVoltage = 3.3;
+  float maxVoltage = 4.1;
+
+  // A feszültség leképezése 0-100 közötti százalékos értékre
+  int percentage = map(battV * 100, minVoltage * 100, maxVoltage * 100, 0, 100);
+
+  // Érték korlátozása 0 és 100 közé, hogy elkerüljük a negatív vagy 100-nál nagyobb értékeket
+  if (percentage < 0) {
+    percentage = 0;
+  }
+  if (percentage > 100) {
+    percentage = 100;
+  }
+
+  return percentage;
+}
+
+
+
+void drawBattery(int x, int y, int percentage) {
+  int width = 20;  // Ikon szélessége
+  int height = 10; // Ikon magassága
+
+  // Akkumulátor házának rajzolása
+  display.drawRect(x, y, width, height, SSD1306_WHITE);
+
+  // A plusz pólus rajzolása
+  display.fillRect(x + width, y + 2, 2, 6, SSD1306_WHITE);
+
+  // A töltöttségi szint kiszámítása és rajzolása
+  int chargeWidth = map(percentage, 0, 100, 0, width - 4);
+  
+  if (percentage > 0) {
+    display.fillRect(x + 2, y + 2, chargeWidth, height - 4, SSD1306_WHITE);
+  }
+}
+
 void DisplayDefault(){
     display.clearDisplay();
-    display.invertDisplay(false);
+    display.setTextColor(SSD1306_WHITE);
     display.setTextSize(1);
     display.setCursor(1,2);
     display.println("Tiny Drones");
     display.setTextSize(2);
-    display.setTextColor(SSD1306_WHITE);
     display.setCursor(28,25);
     display.println(currentRacer.racerName);
     display.setTextSize(1);
@@ -112,7 +169,7 @@ void DisplayStart() {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
     display.setTextSize(2); //felo sor
-    display.setCursor(1, 2);
+    display.setCursor(1, 0);
     display.println(currentRacer.channel);
     int16_t x, y;
     uint16_t w, h;
@@ -120,12 +177,16 @@ void DisplayStart() {
     display.getTextBounds("Racer ?", 0,0, &x, &y, &w, &h);
     display.setCursor((SCREEN_WIDTH - w)/2, (SCREEN_HEIGHT - h)/2);
     display.println(currentRacer.racerName);
+    //display.println(getpilotfromlist(0));
+    //display.println(pilotName);
     display.setTextSize(1); //also sor
-    display.setCursor(1, 52);
-    display.println(GetBatteryVoltage());
+    display.setCursor(85, 4);
+    display.println(String(GetBatteryPercentage()) + "%");
+    //display.println(GetBatteryVoltage());
+    drawBattery(104, 3, GetBatteryPercentage());
     display.setTextSize(1); //also sor jobb oldal
-    display.setCursor(83, 52);
-    display.println("fw: " + String(ProgVer));
+    display.setCursor(104, 56);
+    display.println("v" + String(ProgVer)); //23x7 pixel
     display.display();
 }
 
@@ -197,7 +258,7 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(VBAT_PIN, INPUT);
   pinMode(VIBRA_PIN, OUTPUT);
-  digitalWrite(VIBRA_PIN, HIGH);
+  digitalWrite(VIBRA_PIN, LOW); //vibra start
 
   WiFi.mode(WIFI_STA);
   Serial.println("Tiny Drones - Race Finisher");
@@ -252,6 +313,38 @@ void setup() {
   ws2812b.show();
   digitalWrite(VIBRA_PIN, LOW);
   Serial.println("Setup FINISHED!");
+
+  //időzités indítva:
+  if (!timingActive) {
+    startTime = millis();
+    startTimeF = millis();
+    timingActive = true;
+    Serial.println("Időmérés elindítva!");
+  }
+
+}
+
+String getLaptime(int lap, unsigned long startTime){
+  unsigned long elapsedTime = millis() - startTime;
+  // Kiszámítjuk a percet, másodpercet és a századmásodpercet
+      unsigned long minutes = elapsedTime / 60000;
+    unsigned long seconds = (elapsedTime % 60000) / 1000;
+    unsigned long hundredths = (elapsedTime % 1000) / 10;
+    // Kiszámítjuk a percet, másodpercet és a századmásodpercet
+        // Kiírjuk az eredményt a soros monitorra
+    String lap1; 
+        // A köridő szöveggé formázása és eltárolása
+    if(lap == 4){lap1 = "TOTAL";} else {lap1 = lap;}
+    lap1 += ": ";
+    lap1 += String(minutes);
+    lap1 += ":";
+    if (seconds < 10) lap1 += "0";
+    lap1 += String(seconds);
+    lap1 += ",";
+    if (hundredths < 10) lap1 += "0";
+    lap1 += String(hundredths);
+    return lap1;
+    //Serial.printf("Eredmény: %lu:%02lu,%02lu\n", minutes, seconds, hundredths);
 }
 
 // --- LOOP ---
@@ -261,6 +354,10 @@ void loop() {
         RoundCounter++;
 
         if(RoundCounter == 1) { //1.KÖR TELJESÍTVE
+          if (timingActive) {
+            Serial.println(getLaptime(1, startTime));
+            startTime = millis();
+            }
             DisplayLargeNumber(1);
             ws2812b.clear();
             ws2812b.setPixelColor(0, ws2812b.Color(0, 255, 0)); // zöld LED
@@ -272,6 +369,10 @@ void loop() {
             digitalWrite(VIBRA_PIN, LOW);
         }
         else if(RoundCounter == 2) { //2.KÖR TELJESÍTVE
+            if (timingActive) {
+            Serial.println(getLaptime(2, startTime));
+            startTime = millis();
+            }
             DisplayLargeNumber(2);
             ws2812b.clear();
             ws2812b.setPixelColor(0, ws2812b.Color(0, 255, 0)); // zöld LED
@@ -283,6 +384,10 @@ void loop() {
             digitalWrite(VIBRA_PIN, LOW);
         }
         else if(RoundCounter == 3) { //FINISH
+            if (timingActive) {
+            Serial.println(getLaptime(3, startTime));
+            Serial.println(getLaptime(4, startTimeF));
+            }
             DisplayFinished();
             ws2812b.setBrightness(130);
             ws2812b.clear();
@@ -295,7 +400,10 @@ void loop() {
             delay(800);
             digitalWrite(VIBRA_PIN, LOW);
         }
-        else if(RoundCounter > 3) {
+        else if(RoundCounter == 4) { //POST SCREEN with timings
+            //DisplayPOST();
+        }
+        else if(RoundCounter > 4) {
           IsPressed = false;
           IsFinished = false;
           RoundCounter = 0;
@@ -304,6 +412,18 @@ void loop() {
     // kezdőképernyő, ha még nem indult a verseny
     if(RoundCounter == 0) {
         DisplayStart();
+
+    //        if (millis() - lastDisplayTime >= interval) {
+    //     Frissítjük a kijelzőt a következő pilóta nevével
+    //    currentPilotIndex++;
+    //    if (currentPilotIndex >= numPilots) {
+    //        currentPilotIndex = 0; // Vissza az elejére
+    //    }
+    //    DisplayStart(pilotlist[currentPilotIndex]);
+    //    lastDisplayTime = millis();
+    //}
+
+
         ws2812b.setBrightness(0);
         ws2812b.clear();
         ws2812b.setPixelColor(0, ws2812b.Color(0, 255, 0)); // zöld LED
