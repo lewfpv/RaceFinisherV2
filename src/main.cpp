@@ -8,7 +8,7 @@
 #include "message.h"
 #include "addpeers.h"
 
-String ProgVer = "2.2";
+String ProgVer = "2.3";
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -40,14 +40,13 @@ RacerInfo currentRacer;
 unsigned long startTime = 0;
 unsigned long startTimeF = 0;
 bool timingActive = false;
+String laptime1;
+String laptime2;
+String laptime3;
+String laptimetotal;
+unsigned int finishCount;
 
-
-String getpilotfromlist(uint8_t id){
-String pilotlist[] = {"WHPgab","F!B","SYS FPV","Side","SP!T","balzaccc","Butterfly","Iceman","Bontott csirke","edward","Macleod","PRoland FPV","KRATS","AMON FPV","Bencusfpv","cd334","Pebs","K T","thnmlssfpv","RCKY","Velvix","ErOsS","Prophet","FPVZ","MC"};
-return pilotlist[id];
-}
-
-String pilotlist[] = {"WHPgab", "LEWFPV", "F!B", "SYS FPV", "Side", "SP!T", "balzaccc", "Butterfly", "Iceman", "Bontott csirke", "edward", "Macleod", "PRoland FPV", "KRATS", "AMON FPV", "Bencusfpv", "cd334", "Pebs", "K T", "thnmlssfpv", "RCKY", "Velvix", "ErOsS", "Prophet", "FPVZ", "MC"};
+String pilotlist[] = {"Pilotname1", "Pilotname2"};
 const int numPilots = sizeof(pilotlist) / sizeof(pilotlist[0]);
 int currentPilotIndex = 0;
 unsigned long lastDisplayTime = 0;
@@ -144,6 +143,18 @@ void drawBattery(int x, int y, int percentage) {
   }
 }
 
+String removeAllSpaces(char *str) {
+  char *src = str, *dst = str;
+  while (*src) {
+    if (*src != ' ') { // ha nem szóköz, megtartjuk
+      *dst++ = *src;
+    }
+    src++;
+  }
+  *dst = '\0'; // lezárjuk a végén
+  return String(str);
+}
+
 void DisplayDefault(){
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
@@ -170,14 +181,17 @@ void DisplayStart() {
     display.setTextColor(SSD1306_WHITE);
     display.setTextSize(2); //felo sor
     display.setCursor(1, 0);
+    if (timingActive){
+    display.println(currentRacer.channel +" ->");
+    } else {
     display.println(currentRacer.channel);
+    }
     int16_t x, y;
     uint16_t w, h;
     display.setTextSize(3);
     display.getTextBounds("Racer ?", 0,0, &x, &y, &w, &h);
     display.setCursor((SCREEN_WIDTH - w)/2, (SCREEN_HEIGHT - h)/2);
     display.println(currentRacer.racerName);
-    //display.println(getpilotfromlist(0));
     //display.println(pilotName);
     display.setTextSize(1); //also sor
     display.setCursor(85, 4);
@@ -216,6 +230,109 @@ void DisplayFinished() {
     display.display();
 }
 
+void DisplayPOST(String laptime1, String laptime2, String laptime3, String laptimetotal){
+
+ // flag 32x16 icon
+const unsigned char flag[] PROGMEM = {
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0xf0,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f,
+  0x0f
+};
+
+// Example usage with Adafruit SSD1306 library:
+// display.clearDisplay();
+// display.drawBitmap(0, 0, flag, 32, 16, WHITE);
+// display.display();
+
+
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(2); //felo sor
+    display.setCursor(1, 0);
+    display.println(currentRacer.racerName);
+    display.drawLine(1, 18, 127, 18, SSD1306_WHITE);
+    display.setTextSize(1); //also sor
+    display.setCursor(65, 27);
+    display.println(laptime1);
+    display.setCursor(65, 36);
+    display.println(laptime2);
+    display.setCursor(65, 45);
+    display.println(laptime3);
+    display.setCursor(65, 56);
+    display.println(laptimetotal);
+    display.setCursor(10, 34);
+    display.setTextSize(2);
+    //display.println(currentRacer.channel);
+    display.println(String(finishCount));
+    display.drawBitmap(4, 52, flag, 32, 16, SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(42, 52);
+    display.println(currentRacer.channel);
+    display.display();
+}
+
+
 // --- ESP-NOW ---
 void SendNOW(const uint8_t *mac, const Message &msg) {
   esp_err_t result = esp_now_send(mac, (uint8_t *)&msg, sizeof(msg));
@@ -237,15 +354,41 @@ void OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomingData, int len) 
     memcpy(&msg, incomingData, sizeof(msg));
     switch (msg.type) {
       case 9: { // Verseny üzenet
+
+          currentRacer.racerName = removeAllSpaces(msg.p);
+          //Serial.printf("Pilóta név (szóköz nélkül): '%s'\n", removeAllSpaces(msg.p));
+          
+          Serial.println(currentRacer.racerName);
           IsPressed = false;
           IsFinished = false;
           RoundCounter = 0;
+          laptime1 = "";
+          laptime2 = "";
+          laptime3 = "";
+          laptimetotal = "";
+          timingActive = false;
+          startTime = millis();
+          startTimeF = millis();
+
         if (msg.index > 0){    //reset és név ujrairas
-         currentRacer.racerName = msg.p;
+         //currentRacer.racerName = msg.p;
         } 
-        default:
-        break;
+      break;
       }
+      case 1:{
+      //időzités indítva:
+      if (!timingActive) {
+        startTime = millis();
+        startTimeF = millis();
+        timingActive = true;
+        Serial.println("RACE STARTED - Időmérés elindítva!");
+      }
+      }
+      case 6:{
+      finishCount = msg.index;
+      }
+      default:
+      break;
     }
 }
 
@@ -314,13 +457,7 @@ void setup() {
   digitalWrite(VIBRA_PIN, LOW);
   Serial.println("Setup FINISHED!");
 
-  //időzités indítva:
-  if (!timingActive) {
-    startTime = millis();
-    startTimeF = millis();
-    timingActive = true;
-    Serial.println("Időmérés elindítva!");
-  }
+  
 
 }
 
@@ -334,7 +471,7 @@ String getLaptime(int lap, unsigned long startTime){
         // Kiírjuk az eredményt a soros monitorra
     String lap1; 
         // A köridő szöveggé formázása és eltárolása
-    if(lap == 4){lap1 = "TOTAL";} else {lap1 = lap;}
+    if(lap == 4){lap1 = "+";} else {lap1 = lap;}
     lap1 += ": ";
     lap1 += String(minutes);
     lap1 += ":";
@@ -355,7 +492,8 @@ void loop() {
 
         if(RoundCounter == 1) { //1.KÖR TELJESÍTVE
           if (timingActive) {
-            Serial.println(getLaptime(1, startTime));
+            laptime1 = getLaptime(1, startTime);
+            Serial.println(laptime1);
             startTime = millis();
             }
             DisplayLargeNumber(1);
@@ -370,7 +508,8 @@ void loop() {
         }
         else if(RoundCounter == 2) { //2.KÖR TELJESÍTVE
             if (timingActive) {
-            Serial.println(getLaptime(2, startTime));
+            laptime2 = getLaptime(2, startTime);
+            Serial.println(laptime2);
             startTime = millis();
             }
             DisplayLargeNumber(2);
@@ -385,8 +524,10 @@ void loop() {
         }
         else if(RoundCounter == 3) { //FINISH
             if (timingActive) {
-            Serial.println(getLaptime(3, startTime));
-            Serial.println(getLaptime(4, startTimeF));
+            laptime3 = getLaptime(3, startTime);
+            laptimetotal = getLaptime(4, startTimeF);
+            Serial.println(laptime3);
+            Serial.println(laptimetotal);
             }
             DisplayFinished();
             ws2812b.setBrightness(130);
@@ -399,15 +540,16 @@ void loop() {
             digitalWrite(VIBRA_PIN, HIGH);
             delay(800);
             digitalWrite(VIBRA_PIN, LOW);
+            delay(800);
+            //POST SCREEN with timings
+            DisplayPOST(laptime1, laptime2, laptime3, laptimetotal);
+            timingActive = false;
+            IsPressed = false;
+            IsFinished = false;
         }
-        else if(RoundCounter == 4) { //POST SCREEN with timings
-            //DisplayPOST();
-        }
-        else if(RoundCounter > 4) {
-          IsPressed = false;
-          IsFinished = false;
-          RoundCounter = 0;
-    }
+        
+      
+        
   }
     // kezdőképernyő, ha még nem indult a verseny
     if(RoundCounter == 0) {
